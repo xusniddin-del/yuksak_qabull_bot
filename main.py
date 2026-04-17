@@ -1,3 +1,6 @@
+# 1. Kutubxonani o'rnatish
+!pip install aiogram
+
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types, F
@@ -5,94 +8,66 @@ from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-# 1. BOT SOZLAMALARI
-API_TOKEN = '8640960469:AAGuyb4ceUlJlQDL3QlA8gPg7fkXMccu5Ys'
-logging.basicConfig(level=logging.INFO)
+# 2. BOT SOZLAMALARI
+API_TOKEN = '8640960469:AAGuyb4ceUl1JlQDL3Q1A8gPg7fkXMccu5Ys'
+ADMIN_ID = 8042301004  # Sizning ID raqamingiz
 
+logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# 2. RO'YXATDAN O'TISH BOSQICHLARI
+# 3. RO'YXATDAN O'TISH BOSQICHLARI
 class Reg(StatesGroup):
     ism = State()
     tel = State()
-    kurs = State()
 
-# 3. START BUYRUG'I
+# 4. START BUYRUG'I
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message, state: FSMContext):
-    await message.answer(
-        f"Assalomu alaykum, {message.from_user.full_name}!\n"
-        f"Yuksak ta'lim ro'yxatdan o'tish botiga xush kelibsiz.\n\n"
-        f"Ro'yxatdan o'tish uchun ismingizni kiriting:"
-    )
+    await message.answer(f"Assalomu alaykum!\nYuksak ta'lim ro'yxatdan o'tish botiga xush kelibsiz.\n\nIsmingizni kiriting:")
     await state.set_state(Reg.ism)
 
-# 4. ISMNI QABUL QILISH
+# 5. ISMNI QABUL QILISH
 @dp.message(Reg.ism)
 async def get_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text)
-    kb = [
-        [types.KeyboardButton(text="📞 Raqamni yuborish", request_contact=True)]
-    ]
-    keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-    await message.answer("Rahmat! Endi telefon raqamingizni yuboring:", reply_markup=keyboard)
+    kb = [[types.KeyboardButton(text="📞 Raqamni yuborish", request_contact=True)]]
+    keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
+    await message.answer(f"Rahmat, {message.text}! Endi pastdagi tugmani bosib telefon raqamingizni yuboring:", reply_markup=keyboard)
     await state.set_state(Reg.tel)
 
-# 5. TELEFONNI QABUL QILISH
+# 6. RAQAMNI QABUL QILISH VA SIZGA (ADMINGA) YUBORISH
 @dp.message(Reg.tel, F.contact)
-async def get_phone(message: types.Message, state: FSMContext):
-    await state.update_data(phone=message.contact.phone_number)
-    
-    kb = [
-        [types.KeyboardButton(text="Arab tili"), types.KeyboardButton(text="Arab tili bolajon")],
-        [types.KeyboardButton(text="Xattotlik"), types.KeyboardButton(text="Arab tili CEF")],
-        [types.KeyboardButton(text="Tarix"), types.KeyboardButton(text="Rus tili")],
-        [types.KeyboardButton(text="Kompyuter savodxonligi"), types.KeyboardButton(text="Grafik dizayn")]
-    ]
-    keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-    await message.answer("Qaysi yo'nalish bo'yicha o'qimoqchisiz?", reply_markup=keyboard)
-    await state.set_state(Reg.kurs)
-
-# 6. YAKUNLASH (Sizga xabar yuboradigan qismi)
-@dp.message(Reg.kurs)
-async def finish_reg(message: types.Message, state: FSMContext):
+async def get_tel(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    user_name = data.get("name")
+    phone = message.contact.phone_number
     
-    # ADMIN_ID degan joyga o'zingizning ID raqamingizni yozing
-    ADMIN_ID = 8042301004  # <--- Shu yerga o'z ID raqamingizni qo'ying
+    # Foydalanuvchiga tasdiq xabari
+    await message.answer("Rahmat! Ma'lumotlaringiz qabul qilindi. Tez orada siz bilan bog'lanamiz.", reply_markup=types.ReplyKeyboardRemove())
     
-    user_text = (f"✅ Ro'yxatdan o'tdingiz!\n\n"
-                 f"👤 Ism: {data['name']}\n"
-                 f"📞 Tel: {data['phone']}\n"
-                 f"📚 Kurs: {message.text}")
+    # SIZGA (ADMINGA) keladigan xabar
+    admin_text = (
+        "🆕 **Yangi o'quvchi ro'yxatdan o'tdi!**\n\n"
+        f"👤 **Ismi:** {user_name}\n"
+        f"📞 **Tel:** {phone}\n"
+        f"🆔 **Telegram ID:** `{message.from_user.id}`"
+    )
     
-    admin_text = (f"🔔 Yangi o'quvchi!\n\n"
-                  f"👤 Ismi: {data['name']}\n"
-                  f"📞 Tel: {data['phone']}\n"
-                  f"📚 Kurs: {message.text}\n"
-                  f"🆔 ID: @{message.from_user.username}")
-
-    # Foydalanuvchiga tasdiqlash xabari
-    await message.answer(user_text, reply_markup=types.ReplyKeyboardRemove())
-    
-    # SIZGA (Adminga) ma'lumotni yuborish
     try:
-        await bot.send_message(ADMIN_ID, admin_text)
+        await bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
     except Exception as e:
         print(f"Adminga xabar yuborishda xato: {e}")
-
+    
     await state.clear()
 
 # 7. BOTNI ISHGA TUSHIRISH
 async def main():
-    # Eski xabarlarni o'chirib yuborish (Conflict xatosi bo'lmasligi uchun)
-    await bot.delete_webhook(drop_pending_updates=True)
-    print("Bot yangilandi va ishga tushdi...")
+    print("Bot ishga tushdi... Telegramdan tekshirib ko'ring!")
     await dp.start_polling(bot)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        print("Bot to'xtatildi!")
+        await main()
+    except Exception as e:
+        print(f"Xatolik: {e}")
