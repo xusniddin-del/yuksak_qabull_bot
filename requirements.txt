@@ -1,2 +1,1 @@
-aiogram
-asyncio
+aiogram>=3.4,<4
